@@ -63,27 +63,28 @@ This is a modular, advanced Elasticsearch GUI built using only **HTML, CSS, Java
 
 ## Folder Structure
 
+```bash
 ELASTICSEARCH-GUI/
 ├── css/
-│ ├── main.css
-│ └── dark-mode.css
+│   ├── main.css
+│   └── dark-mode.css
 ├── js/
-│ ├── utils/
-│ │ ├── errorHandling.js
-│ │ └── helpers.js
-│ ├── app.js
-│ ├── connection.js
-│ ├── dataGrid.js
-│ ├── export.js
-│ ├── filters.js
-│ ├── localization.js
-│ ├── management.js
-│ ├── onboarding.js
-│ ├── preferences.js
-│ └── visualization.js
+│   ├── utils/
+│   │   ├── errorHandling.js
+│   │   └── helpers.js
+│   ├── app.js
+│   ├── connection.js
+│   ├── dataGrid.js
+│   ├── export.js
+│   ├── filters.js
+│   ├── localization.js
+│   ├── management.js
+│   ├── onboarding.js
+│   ├── preferences.js
+│   └── visualization.js
 ├── index.html
 └── README.md
-
+```
 ---
 
 ## Installation & Setup
