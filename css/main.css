@@ -1,0 +1,222 @@
+/* =====================
+   MAIN CSS STYLES
+===================== */
+
+/* 1) Basic Root Styles
+   - Setup a custom font stack that complements Bootstrap 5
+   - Provide a fallback if Roboto or Open Sans is unavailable
+*/
+:root {
+  --font-family: "Roboto", "Open Sans", Arial, sans-serif;
+  --bg-color: #f0f2f5;       /* Default light background */
+  --text-color: #212529;     /* Bootstrap default text color */
+  --heading-color: #343a40;  /* Slightly darker text for headings */
+  --border-color: #ced4da;   /* Light border color */
+  --section-bg-color: #ffffff;  /* Form section / container background */
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 2) Global Body Styles
+   - Use a modern font family
+   - Smooth transitions for background/color changes
+*/
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s, color 0.3s, filter 0.3s;
+}
+
+/* 3) Navigation / Navbar (if you want minimal changes
+   - Usually Bootstrap classes handle navbars,
+     so minimal or no override needed.
+*/
+#topNavbar {
+  margin-bottom: 10px;
+}
+
+/* 4) Form Section Styling
+   - Light background, subtle border, slight shadow
+*/
+.form-section {
+  background-color: var(--section-bg-color);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  margin-bottom: 25px;
+  border-radius: 8px;
+  box-shadow: var(--box-shadow);
+}
+
+/* 5) Table Container
+   - Overflow for scroll
+   - Subtle max height
+*/
+.table-container {
+  position: relative;
+  z-index: auto;
+  max-height: 500px; /* Adjust as you like */
+  overflow: auto;
+  margin-bottom: 1rem; /* Some spacing after table */
+}
+
+/* 5a) Table Head "Sticky"
+   - Keep thead at top while scrolling
+*/
+.table-container thead {
+  position: sticky;
+  top: 0;
+  z-index: 2; /* Ensure it stays above table body rows */
+  background: #f8f9fa; /* A light grayish background for clarity */
+}
+
+/* 6) Pagination Controls
+   - Use flex for spacing
+*/
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* 7) Export Buttons
+   - Group them with a slight gap
+*/
+.export-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btn-export {
+  min-width: 100px;
+}
+
+/* 8) Column List for Column Selector Modal */
+.column-list {
+  min-height: 200px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* 9) Column List Items
+   - Subtle highlight on hover
+*/
+.column-list li {
+  list-style-type: none;
+  margin: 5px 0;
+  padding: 8px 12px;
+  background-color: #e9ecef;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  word-break: break-word;
+  position: relative;
+  transition: background-color 0.2s;
+}
+.column-list li:hover:not(.selected) {
+  background-color: #dee2e6;
+}
+
+/* Highlight when selected */
+.column-list li.selected {
+  background-color: #0d6efd;
+  color: #fff;
+}
+
+/* Alias Input in Column Modal */
+.column-list li input.alias-input {
+  width: 100px;
+  margin-left: 10px;
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  padding: 2px 5px;
+}
+
+/* 10) Notification Alert
+   - Fixed to top-right
+*/
+#notification {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 1050;
+}
+
+/* 11) Visualization Chart Container
+   - For your chart area
+*/
+.chart-container {
+  width: 100%;
+  height: 400px;
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+/* 12) Move Buttons in Column Modal */
+.move-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 13) Contrast Slider */
+.contrast-slider {
+  width: 150px;
+  cursor: pointer;
+  margin-right: 1rem; /* optional spacing */
+}
+
+/* 14) Modal Enhancements
+   - Fade transitions that do not conflict with Bootstrap
+*/
+.modal.fade .modal-dialog {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  transform: translate(0, -25%);
+  opacity: 0;
+}
+.modal.show .modal-dialog {
+  transform: translate(0, 0);
+  opacity: 1;
+}
+
+/* 14a) Fix for full backdrop height in some browsers */
+.modal-backdrop {
+  height: 100% !important;
+}
+
+/* (Optional) Customize the modal's border radius or shadow
+   - If you prefer a specific look
+*/
+.modal-content {
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* (Optional) Tweak the modal header styling
+   - Keep it consistent with Bootstrap
+*/
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+}
