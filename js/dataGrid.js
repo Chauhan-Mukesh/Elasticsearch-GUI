@@ -252,179 +252,291 @@ async function searchElasticsearch(isExport = false, isInitial = false) {
 }
 
 /**
- * Builds an Elasticsearch query with partial substring on `.keyword` sub-fields.
+ * Constructs an Elasticsearch query object based on current filters.
+ * Handles both nested and non-nested fields, supporting various operators.
  *
- * NOTE: Each "text" field you want to do "contains" on
- *       must have a corresponding `<field>.keyword` sub-field in the mapping.
+ * @param {number} [overrideSize] - Optional size override for the query.
+ * @param {boolean} [isInitial=false] - Flag indicating if this is the initial query.
+ * @returns {object} - The constructed Elasticsearch query object.
  */
 function buildQuery(overrideSize, isInitial = false) {
-  const mustClauses = [];
+  try {
+    // Validate essential variables
+    if (typeof fieldTypes === 'undefined') {
+      throw new Error('fieldTypes is not defined.');
+    }
+    if (typeof currentFilters === 'undefined') {
+      throw new Error('currentFilters is not defined.');
+    }
 
-  for (const field in currentFilters) {
-    if (!currentFilters.hasOwnProperty(field)) continue;
+    const mustClauses = [];
 
-    const filter = currentFilters[field];
-    const fieldType = fieldTypes[field];
-    let matchQuery = {};
-
-    // =================== TEXT FIELDS ===================
-    if (fieldType === "text") {
-      // We'll assume there's a `<field>.keyword` sub-field.
-      // We'll do partial substring matching via wildcard on that sub-field.
-      // If you also want case-insensitive matching, you can do `.toLowerCase()` on the value
-      // and store your .keyword sub-field in lowercase. Example:
-      //   const userValue = filter.value.toLowerCase();
-      //   const keywordField = field + ".keyword";
-
-      const userValue = filter.value;              // or userValue.toLowerCase() for case-insensitive
-      const keywordField = field + ".keyword";     // The sub-field name
-
-      if (filter.operator === "contains" && filter.value) {
-        // partial substring => wildcard on .keyword
-        matchQuery = {
-          wildcard: {
-            [keywordField]: `*${userValue}*`,
-          },
-        };
-      } else if (filter.operator === "equals" && filter.value) {
-        // exact match => term or match_phrase on .keyword
-        matchQuery = {
-          term: {
-            [keywordField]: userValue,
-          },
-        };
+    // Iterate over each filter to construct query clauses
+    for (const field in currentFilters) {
+      if (!Object.prototype.hasOwnProperty.call(currentFilters, field)) {
+        continue;
       }
 
-      // =================== KEYWORD FIELDS ===================
-    } else if (fieldType === "keyword") {
-      // Already a keyword field => no .keyword sub-field needed
-      if (filter.operator === "contains" && filter.value) {
-        matchQuery = {
-          wildcard: {
-            [field]: `*${filter.value}*`,
-          },
-        };
-      } else if (filter.operator === "equals" && filter.value) {
-        matchQuery = {
-          term: {
-            [field]: filter.value,
-          },
-        };
-      }
+      const filter = currentFilters[field];
+      const fieldType = fieldTypes[field];
+      let matchQuery = {};
 
-      // =================== NUMERIC FIELDS ===================
-    } else if (["integer", "long", "float", "double"].includes(fieldType)) {
-      if (filter.operator === "exact" && filter.value !== undefined && filter.value !== "") {
-        matchQuery = {
-          term: {
-            [field]: parseFloat(filter.value),
-          },
-        };
-      } else if (filter.operator === "range") {
-        const range = {};
-        if (filter.min !== "") range.gte = parseFloat(filter.min);
-        if (filter.max !== "") range.lte = parseFloat(filter.max);
-        if (Object.keys(range).length) {
+      // Determine if the field is within a nested path
+      const nestedPath = getNestedPath(field);
+      const isNested = nestedPath !== null;
+
+      if (isNested) {
+        const relativeField = field.substring(nestedPath.length + 1); // Remove 'ServiceTiers.' prefix
+
+        if (filter.operator === 'contains' && filter.value) {
           matchQuery = {
-            range: {
-              [field]: range,
-            },
+            nested: {
+              path: nestedPath,
+              query: {
+                // Using query_string allows partial/wildcard-like behavior on analyzed fields
+                query_string: {
+                  query: `*${filter.value}*`,
+                  default_field: `${nestedPath}.${relativeField}`
+                }
+              }
+            }
           };
+        } else if (filter.operator === 'equals' && filter.value) {
+          matchQuery = {
+            nested: {
+              path: nestedPath,
+              query: {
+                match_phrase: {
+                  [`${relativeField}`]: filter.value
+                }
+              }
+            }
+          };
+        }
+      } else {
+        // Handle non-nested fields
+        switch (fieldType) {
+          case 'text': {
+            const keywordField = `${field}.keyword`;
+            if (fieldTypes[keywordField] === 'keyword') {
+              // If .keyword subfield exists, use it for exact/wildcard searches
+              if (filter.operator === 'contains' && filter.value) {
+                matchQuery = {
+                  wildcard: {
+                    [keywordField]: `*${filter.value}*`,
+                  },
+                };
+              } else if (filter.operator === 'equals' && filter.value) {
+                matchQuery = {
+                  term: {
+                    [keywordField]: filter.value,
+                  },
+                };
+              }
+            } else {
+              // If no .keyword subfield, use match_phrase for exact matches
+              if (filter.operator === 'contains' && filter.value) {
+                // 'contains' can be interpreted as a full-text search
+                matchQuery = {
+                  match: {
+                    [field]: {
+                      query: filter.value,
+                      operator: 'and',
+                    },
+                  },
+                };
+              } else if (filter.operator === 'equals' && filter.value) {
+                matchQuery = {
+                  match_phrase: {
+                    [field]: filter.value,
+                  },
+                };
+              }
+            }
+            break;
+          }
+
+          case 'keyword': {
+            if (filter.operator === 'contains' && filter.value) {
+              matchQuery = {
+                wildcard: {
+                  [field]: `*${filter.value}*`,
+                },
+              };
+            } else if (filter.operator === 'equals' && filter.value) {
+              matchQuery = {
+                term: {
+                  [field]: filter.value,
+                },
+              };
+            }
+            break;
+          }
+
+          case 'integer':
+          case 'long':
+          case 'float':
+          case 'double': {
+            if (filter.operator === 'exact' && filter.value !== undefined && filter.value !== '') {
+              const numericValue = Number(filter.value);
+              if (isNaN(numericValue)) {
+                console.warn(`Invalid numeric value for field ${field}: ${filter.value}`);
+                continue;
+              }
+              matchQuery = {
+                term: {
+                  [field]: numericValue,
+                },
+              };
+            } else if (filter.operator === 'range') {
+              const range = {};
+              if (filter.min !== '') {
+                const min = Number(filter.min);
+                if (!isNaN(min)) {
+                  range.gte = min;
+                }
+              }
+              if (filter.max !== '') {
+                const max = Number(filter.max);
+                if (!isNaN(max)) {
+                  range.lte = max;
+                }
+              }
+              if (Object.keys(range).length > 0) {
+                matchQuery = {
+                  range: {
+                    [field]: range,
+                  },
+                };
+              }
+            }
+            break;
+          }
+
+          case 'date': {
+            const range = {};
+            if (filter.start !== '') {
+              range.gte = filter.start;
+            }
+            if (filter.end !== '') {
+              range.lte = filter.end;
+            }
+            if (Object.keys(range).length > 0) {
+              matchQuery = {
+                range: {
+                  [field]: range,
+                },
+              };
+            }
+            break;
+          }
+
+          case 'object': {
+            // Assuming 'object' fields might have a .keyword subfield
+            const keywordField = `${field}.keyword`;
+            if (fieldTypes[keywordField] === 'keyword') {
+              if (filter.operator === 'contains' && filter.value) {
+                matchQuery = {
+                  wildcard: {
+                    [keywordField]: `*${filter.value}*`,
+                  },
+                };
+              } else if (filter.operator === 'equals' && filter.value) {
+                matchQuery = {
+                  term: {
+                    [keywordField]: filter.value,
+                  },
+                };
+              }
+            } else {
+              // Fallback for object fields without .keyword
+              if (filter.operator === 'contains' && filter.value) {
+                matchQuery = {
+                  match: {
+                    [field]: {
+                      query: filter.value,
+                      operator: 'and',
+                    },
+                  },
+                };
+              } else if (filter.operator === 'equals' && filter.value) {
+                matchQuery = {
+                  match_phrase: {
+                    [field]: filter.value,
+                  },
+                };
+              }
+            }
+            break;
+          }
+
+          default:
+            console.warn(`Unhandled field type '${fieldType}' for field '${field}'.`);
         }
       }
 
-      // =================== DATE FIELDS ===================
-    } else if (fieldType === "date") {
-      const range = {};
-      if (filter.start !== "") range.gte = filter.start;
-      if (filter.end !== "") range.lte = filter.end;
-      if (Object.keys(range).length > 0) {
-        matchQuery = {
-          range: {
-            [field]: range,
-          },
-        };
-      }
-
-      // =================== NESTED FIELDS ===================
-    } else if (fieldType === "nested") {
-      const nestedPath = getNestedPath(field); // Helper function to extract path
-      if (filter.operator === "contains" && filter.value) {
-        matchQuery = {
-          nested: {
-            path: nestedPath,
-            query: {
-              wildcard: {
-                [field]: `*${filter.value}*`
-              }
-            }
-          }
-        };
-      } else if (filter.operator === "equals" && filter.value) {
-        matchQuery = {
-          nested: {
-            path: nestedPath,
-            query: {
-              term: {
-                [field]: filter.value
-              }
-            }
-          }
-        };
-      }
-    } else if (fieldType === "object") {
-      // If "object" is not nested, treat like normal text but .keyword
-      const userValue = filter.value;
-      const keywordField = field + ".keyword";
-
-      if (filter.operator === "contains" && userValue) {
-        matchQuery = {
-          wildcard: {
-            [keywordField]: `*${userValue}*`,
-          },
-        };
-      } else if (filter.operator === "equals" && userValue) {
-        matchQuery = {
-          term: {
-            [keywordField]: userValue,
-          },
-        };
+      // Add the constructed match query to must clauses if valid
+      if (Object.keys(matchQuery).length > 0) {
+        mustClauses.push(matchQuery);
       }
     }
 
-    // Push the constructed query if it's valid
-    if (Object.keys(matchQuery).length) {
-      mustClauses.push(matchQuery);
-    }
-  }
-
-  // ============= Final Query Construction =============
-  const finalQuery = {
-    from: overrideSize !== undefined ? 0 : currentPage * pageSize,
-    size: overrideSize !== undefined ? overrideSize : pageSize,
-    query: {
-      bool: {
-        must: mustClauses.length > 0 ? mustClauses : { match_all: {} },
+    // Construct the final query object
+    const finalQuery = {
+      from: overrideSize !== undefined ? 0 : currentPage * pageSize,
+      size: overrideSize !== undefined ? overrideSize : pageSize,
+      query: {
+        bool: {
+          must: mustClauses.length > 0 ? mustClauses : { match_all: {} },
+        },
       },
-    },
-  };
+    };
 
-  if (!mustClauses.length && !isInitial) {
-    showNotification("No filters applied. Showing default results.", "info");
+    if (mustClauses.length === 0 && !isInitial) {
+      showNotification('No filters applied. Showing default results.', 'info');
+    }
+
+    console.debug('Constructed Elasticsearch Query:', JSON.stringify(finalQuery, null, 2));
+    return finalQuery;
+  } catch (error) {
+    console.error('Error in buildQuery:', error);
+    showNotification(`Error building query: ${error.message}`, 'danger');
+    // Return a default match_all query to prevent application crash
+    return {
+      from: overrideSize !== undefined ? 0 : currentPage * pageSize,
+      size: overrideSize !== undefined ? overrideSize : pageSize,
+      query: {
+        match_all: {},
+      },
+    };
   }
-
-  return finalQuery;
 }
 
+/**
+ * Retrieves the nested path for a given field based on fieldTypes.
+ *
+ * @param {string} field - The full field path (e.g., "ServiceTiers.LegacyNpiCode").
+ * @returns {string|null} - The nested path (e.g., "ServiceTiers") or null if not found.
+ */
 function getNestedPath(field) {
-  const parts = field.split(".");
-  for (let i = parts.length - 1; i > 0; i--) {
-    const possiblePath = parts.slice(0, i).join(".");
-    if (fieldTypes[possiblePath] === "nested") {
-      return possiblePath;
+  try {
+    if (!field || typeof field !== 'string') {
+      console.warn('Invalid field provided to getNestedPath.');
+      return null;
     }
+
+    const parts = field.split('.');
+    for (let i = parts.length; i > 0; i--) {
+      const possiblePath = parts.slice(0, i).join('.');
+      if (fieldTypes[possiblePath] === 'nested') {
+        return possiblePath;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error in getNestedPath:', error);
+    return null;
   }
-  return null;
 }
 
 /**

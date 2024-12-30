@@ -8,63 +8,66 @@
  */
 
 /**
- * A truly generic getNestedValue that:
- * 1. Walks down each key in pathArr.
- * 2. If at any step it's an array, we map over each item and continue.
- * 3. Finally returns either a string or a primitive, so you can display it easily.
+ * Retrieves the value from a nested object based on the provided path array.
+ * Handles arrays and objects, converting the final value into a string.
+ *
+ * @param {object} obj - The source object from which to retrieve the value.
+ * @param {string[]} pathArr - An array representing the path to the desired value.
+ * @returns {string} - The retrieved value as a string, or an empty string if not found.
  */
 function getNestedValue(obj, pathArr) {
-  // We'll traverse down obj step by step according to pathArr
-  let current = obj;
-
-  for (let i = 0; i < pathArr.length; i++) {
-    const key = pathArr[i];
-    if (current == null) {
-      // If current is null or undefined, no more to traverse
-      return undefined;
+  try {
+    if (!obj || !pathArr || !Array.isArray(pathArr)) {
+      console.warn('Invalid arguments provided to getNestedValue.');
+      return '';
     }
 
-    if (Array.isArray(current)) {
-      // If current is an array, we want to gather the results from each item
-      // For instance, if current = [ {...}, {...} ], we do item[key]
-      current = current.map((item) => {
-        if (item == null) return undefined;
-        return item[key];
-      });
-    } else {
-      // Not an array, just descend one level
-      current = current[key];
+    let current = obj;
+
+    for (let i = 0; i < pathArr.length; i++) {
+      const key = pathArr[i];
+      if (current == null) {
+        return '';
+      }
+
+      if (Array.isArray(current)) {
+        current = current.map((item) => (item ? item[key] : undefined)).flat();
+      } else {
+        current = current[key];
+      }
     }
+
+    return convertToString(current);
+  } catch (error) {
+    console.error('Error in getNestedValue:', error);
+    return '';
   }
-
-  // Now we've resolved the path to `current`, which could be:
-  //  - a primitive (string, number, boolean)
-  //  - an array of something
-  //  - an object
-  // We'll convert it into a displayable string generically.
-
-  return convertToString(current);
 }
 
 /**
- * convertToString - Recursively convert any array/object to a string for display
+ * Recursively converts any given value (including arrays and objects) into a displayable string.
+ *
+ * @param {*} value - The value to be converted.
+ * @returns {string} - The string representation of the input value.
  */
 function convertToString(value) {
-  if (Array.isArray(value)) {
-    // Map each element to a string, then join
-    return value
-        .map((v) => convertToString(v))
-        .filter((v) => v !== undefined && v !== null && v !== "")
-        .join(", ");
-  } else if (value && typeof value === "object") {
-    // If it's an object, we could do a short JSON.stringify or something
-    // For a fully generic approach, let's just JSON.stringify it.
-    return JSON.stringify(value);
-  } else if (value == null) {
-    return "";
-  } else {
-    // string, number, boolean, etc.
-    return value.toString();
+  try {
+    if (Array.isArray(value)) {
+      return value
+          .map((v) => convertToString(v))
+          .filter((v) => v !== undefined && v !== null && v !== '')
+          .join(', ');
+    } else if (value && typeof value === 'object') {
+      // Customize this if you want specific object fields to be displayed
+      return JSON.stringify(value);
+    } else if (value == null) {
+      return '';
+    } else {
+      return value.toString();
+    }
+  } catch (error) {
+    console.error('Error in convertToString:', error);
+    return '';
   }
 }
 
