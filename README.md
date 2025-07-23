@@ -94,14 +94,34 @@ ELASTICSEARCH-GUI/
 2. **Elasticsearch**  
    - Ensure you have an Elasticsearch instance running and accessible.
 
-3. **No Back-End Needed**  
-   - This GUI is front-end only. Simply open `index.html` in your browser.
+3. **Dependencies**  
+   - Run the build script to download required dependencies:
+     ```bash
+     chmod +x build.sh
+     ./build.sh
+     ```
+   - Or use npm to run the build script:
+     ```bash
+     npm run build
+     ```
 
-4. **Configure**  
+4. **Firewall Considerations**  
+   - If you're in a firewall-restricted environment (like some CI/CD systems), the build script will create placeholder files
+   - The GitHub Actions workflow handles dependency downloads before firewall restrictions are applied
+   - The application falls back to CDN versions for missing local files
+
+5. **No Back-End Needed**  
+   - This GUI is front-end only. Simply open `index.html` in your browser.
+   - Or serve it locally:
+     ```bash
+     npm start
+     ```
+
+6. **Configure**  
    - If your Elasticsearch instance uses Basic Auth, provide username/password in the Connection form.
    - The default language is English (`en`). Adjust or extend languages in `localization.js`.
 
-5. **Run**  
+7. **Run**  
    - Open `index.html` in a modern web browser (Chrome, Firefox, Edge, etc.).
    - Enter your Elasticsearch details (URL, username, password) and click **Connect**.
 
@@ -169,6 +189,15 @@ ELASTICSEARCH-GUI/
 6. **Range Sliders or Date Pickers**  
    - Ensure jQuery UI is loaded (for slider) or your chosen date picker library is included.  
    - If `attachDatePickerToDateFields` is commented, remove the comment to enable it.
+
+7. **Firewall Issues with CDN Downloads**  
+   - **Problem**: `curl: (6) Could not resolve host: cdn.jsdelivr.net` or similar firewall blocks
+   - **Solution 1**: Run the build script in an unrestricted environment first
+   - **Solution 2**: Use the GitHub Actions workflow which downloads dependencies before firewall restrictions
+   - **Solution 3**: Manually download required files to the `lib/` directory:
+     - `lib/showdown.min.js` from https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js
+     - Other dependencies as listed in `build.sh`
+   - **Fallback**: The application will use CDN versions if local files are missing
 
 ---
 
